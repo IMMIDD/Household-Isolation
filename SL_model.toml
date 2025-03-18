@@ -122,7 +122,7 @@
 
     [Settings.Municipality]
         [Settings.Municipality.contact_sampling_method]
-                type = "ContactparameterSampling"
+                type = "SizeBasedSampling"
 
                 [Settings.Municipality.contact_sampling_method.parameters]
                     contactparameter = 1.3

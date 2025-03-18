@@ -104,10 +104,11 @@ plts = []
 max_no_of_households = maximum([v for (k, v) in number_of_households])
 max_zero_contribution_ratio = maximum([v for (k, v) in zero_contribution_ratio])
 max_median_contribution = maximum([v for (k, v) in median_pos_contribution])
+max_avg_contribution = maximum([v for (k, v) in avg_contribution])
 
 
-xlims = (0, 1.1 * max_zero_contribution_ratio)
-ylims = (0.0, 1.1 * max_median_contribution)
+xlims = (0, 1.1 * max_no_of_households)
+ylims = (0.0, 1.1 * max_avg_contribution)
 clims = (0, max_no_of_households)
 
 # columns in combined plot
@@ -119,12 +120,13 @@ for (k, p) in predicates
     show_y = cnt % cols == 0
 
     push!(plts,
-        scatter([zero_contribution_ratio[k]], [median_pos_contribution[k]],
+        scatter([number_of_households[k]], [avg_contribution[k]],
             # zcolor = number_of_households[k],
             # cmap=:reds,
             # clims = clims,
             #yaxis = show_y,
-            xformatter = show_x ? x -> "$(Int64(round(100 * x)))%" : :none,
+            #xformatter = show_x ? x -> "$(Int64(round(100 * x)))%" : :none,
+            xformatter = show_x ? x -> x : :none,
             yformatter = show_y ? y -> "$(@sprintf("%.4f", round(100 * y, digits = 4)))%" : :none,
             tickfontsize = 12,
             xlims = xlims, 
@@ -195,6 +197,8 @@ rd2 = ResultData(sim2)
 gemsplot([rd1, rd2])
 
 gemsplot([rd1, rd2], type = :TickCasesBySetting)
+
+gemsplot(rd2, type = :TickCasesBySetting)
 
 
 rd1 |> infections |> nrow
