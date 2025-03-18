@@ -92,3 +92,42 @@ function household_contribution(input_infs)
 
     return infs
 end
+
+
+
+
+
+
+function household_contribution_fast(input_infs)
+    total_infections = nrow(input_infs)
+
+    infs = input_infs |>
+        x -> sort(x, :infection_id) |>
+        x -> DataFrames.select(x, :source_infection_id, :infection_id, :household_b => :hh_id)
+
+    # caclulate sets of distinct infections
+    infection_sets = Dict(i => Set{Int}() for i in infs.infection_id)
+    for i in nrow(infs):-1:1
+        src = infs.source_infection_id[i]
+        if src != -1
+            push!(infection_sets[src], infs.infection_id[i])
+            union!(infection_sets[src], infection_sets[infs.infection_id[i]]) 
+        end
+    end
+
+    # merge individual sets into household sets
+    hh_infection_sets = Dict(hh => Set{Int}() for hh in unique(infs.hh_id))
+    for row in eachrow(infs)
+        union!(hh_infection_sets[row.hh_id], infection_sets[row.infection_id])
+    end
+
+    # calculate household contributions
+    hh_contributions = DataFrame(
+        hh_id = collect(keys(hh_infection_sets)),
+        hh_contribution = [length(v) for v in values(hh_infection_sets)]
+    )
+    hh_contributions.hh_contribution_ratio = hh_contributions.hh_contribution ./ total_infections
+    sort!(hh_contributions, :hh_id)
+
+    return hh_contributions
+end
