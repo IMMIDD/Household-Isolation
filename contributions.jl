@@ -98,7 +98,7 @@ end
 
 
 
-function household_contribution_fast(input_infs)
+function household_contribution_2(input_infs)
     total_infections = nrow(input_infs)
 
     infs = input_infs |>
