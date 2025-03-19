@@ -1,4 +1,4 @@
-using GEMS, DataFrames, Plots, Statistics, StatsPlots, Printf, Distributions
+using GEMS, DataFrames, Plots, Statistics, StatsPlots, Printf, Distributions, Dates
 
 include("predicates.jl")
 include("contributions.jl")
@@ -11,9 +11,12 @@ rd = ResultData(sim)
 pp = PostProcessor(sim)
 infs = infections(pp)
 # calculate contributions
-contributions = household_contribution(infs)
+contributions = household_contribution_fast(infs)
 
+folder = joinpath("results", "$(Dates.format(Dates.now(), "yyyy-mm-dd_HH-MM-SS_sss"))")
+mkpath(folder)
 
+##### CREATE HOUSEHOLD DATAFRAME WITH TYPE ATTRIBUTIONS #####
 
 # list of predicate functions and names (function, label)
 predicates = Dict(
@@ -62,12 +65,8 @@ df.hh_contribution = coalesce.(df.hh_contribution, 0)
 df.hh_contribution_ratio = coalesce.(df.hh_contribution_ratio, 0.0)
 
 
-# plotting
-boxplot(
-    [p[2] for (k, p) in predicates], # labels
-    [df.hh_contribution_ratio[df[!, k]] for (k, p) in predicates], # data
-    label="", title="Household Contributions",
-    ylabel="Contribution Ratio", xlabel="Household Types")
+
+##### ANALYZE HOUSEHOLD TYPE CONTRIBUTIONS #####
 
 # takes a dataframe and a function to extract data
 # from a dataframe and a particular column
@@ -98,7 +97,7 @@ avg_pos_contribution = apply_to_column(df, (df, c) -> mean(df.hh_contribution_ra
 median_pos_contribution = apply_to_column(df, (df, c) ->  median(df.hh_contribution_ratio[df[!, c] .&& df.hh_contribution_ratio .> 0]))
 
 
-
+##### PLOTTING #####
 
 plts = []
 max_no_of_households = maximum([v for (k, v) in number_of_households])
@@ -142,69 +141,7 @@ for (k, p) in predicates
     cnt += 1
 end
 
-plot(plts..., size = (2000, 1400))
-#, layout = (1, 7), size = (1000, 200))
-
-
-
-
-
-
-
-
-
-
-#### EXPERIMENTS 
-
-
-
-scatter([df.avg_age], [df.hh_contribution], size = (1000, 1000))
-
-
-gemsplot(rd)
-
-
-
-sum(hhlds.size[hhlds.size .>= 500])
-
-hhlds |> nrow
-
-
-sim1 = Simulation(population = "SL", label = "default",
-    school_complex_contact_rate = 0.0,
-    school_contact_rate = 0.0,
-    school_year_contact_rate = 0.0,
-    school_class_contact_rate = 0.0,
-    workplace_site_contact_rate = 0.0,
-    workplace_contact_rate = 0.0,
-    department_contact_rate = 0.0,
-    office_contact_rate = 0.0,
-    municipality_contact_rate = 0.0,
-    global_contact_rate = 0.5,
-    household_contact_rate = 1.5,
-    global_setting = true,
-    transmission_rate = 0.15
-)
-sim2 = Simulation("SL_model.toml", "SL", label = "custom contacts")
-
-run!(sim1)
-run!(sim2)
-
-rd1 = ResultData(sim1)
-rd2 = ResultData(sim2)
-
-
-gemsplot([rd1, rd2])
-
-gemsplot([rd1, rd2], type = :TickCasesBySetting)
-
-gemsplot(rd2, type = :TickCasesBySetting)
-
-
-rd1 |> infections |> nrow
-rd2 |> infections |> nrow
-
-
-
-N = Normal(0, 3)
-rand(N, 100) |> histogram
+# combine plot
+p = plot(plts..., size = (2000, 1400))
+# store plot
+png(p, joinpath(folder, "contribution_analysis.png"))
