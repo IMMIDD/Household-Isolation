@@ -1,20 +1,63 @@
-using GEMS, DataFrames, Plots, Statistics, StatsPlots, Printf, Distributions, Dates
+using GEMS, DataFrames, Plots, Statistics, StatsPlots, Printf, Distributions, Dates, Proj
 
+# INLCUDES
 include("predicates.jl")
 include("contributions.jl")
 include("contact_sampling.jl")
+include("model_analysis.jl")
 
-#sim = Simulation(population = "SH")
+# RUNNING INITIAL SIMULATION
+
 sim = Simulation("SL_model.toml", "SL", label = "custom contacts")
 run!(sim)
 rd = ResultData(sim)
 pp = PostProcessor(sim)
 infs = infections(pp)
+
+# RESULT FOLDER
+folder = joinpath("results", "$(Dates.format(Dates.now(), "yyyy-mm-dd_HH-MM-SS_sss"))")
+mkpath(folder)
+
+
+# MODEL ANALYSIS
+hh_s = hh_sizes(sim)
+hh_plot = bar(hh_s.size, hh_s.cnt,
+    bins = 1:1:7,
+    label = "Household Sizes",
+    color = :black,
+    xformatter = (x -> x == 7 ? "7+" : "$(Int(x))"))
+
+wp_s = wp_sizes(sim, 30, 200)
+wp_plot = bar(wp_s.cnt,
+    color = :red,
+    xticks=(1:length(wp_s.size), format_xticks(wp_s.size)),  
+    label = "Workplace Sizes")
+
+s_s = s_sizes(sim, 30, 200)
+s_plot = bar(s_s.cnt,
+    color = :blue,
+    xticks=(1:length(s_s.size), format_xticks(s_s.size)),  
+    label = "School Sizes")
+
+setting_map = plot_settings(sim)
+
+
+l = @layout [a{0.7w} grid(3, 1)]
+
+p = plot(
+    setting_map, hh_plot, wp_plot, s_plot,
+    layout = l,
+)
+
+png(p, joinpath(folder, "settings_and_map.png"))
+
+
+
+# HOUSEHOLD CONTRIBUTIONS
+
 # calculate contributions
 contributions = household_contribution_fast(infs)
 
-folder = joinpath("results", "$(Dates.format(Dates.now(), "yyyy-mm-dd_HH-MM-SS_sss"))")
-mkpath(folder)
 
 ##### CREATE HOUSEHOLD DATAFRAME WITH TYPE ATTRIBUTIONS #####
 
@@ -44,6 +87,7 @@ predicates = Dict(
     "i5_wo_workers"     => (i5_without_workers,         "5p-household without workers"),
     "i6plus_w_workers"  => (i6plus_with_workers,        "6plus-household with workers"),
     "i6plus_wo_workers" => (i6plus_without_workers,     "6plus-household without workers"),
+    "big_schools"       => (big_schools,                "one student in 150+ sized school"),
 )
 
 # dataframe with household information
@@ -55,7 +99,7 @@ hhlds = DataFrame(
 
 # apply predicate functions
 for (k, p) in predicates
-    hhlds[!, k] = p[1].(households(sim))
+    hhlds[!, k] = (h -> p[1](h, sim)).(households(sim))
 end
 
 # join with households-dataframe
@@ -87,7 +131,7 @@ zero_contribution = apply_to_column(df, (df, c) -> sum(df[!, c] .&& df.hh_contri
 # ratio of household with 0 contribution (fraction of all households)
 zero_contribution_ratio = apply_to_column(df, (df, c) -> zero_contribution[c] / number_of_households[c])
 
-# average contribution (including 0s)
+# average contr ibution (including 0s)
 avg_contribution = apply_to_column(df, (df, c) -> mean(df.hh_contribution_ratio[df[!, c]]))
 
 # average contribution (excluding 0s)
@@ -112,11 +156,11 @@ clims = (0, max_no_of_households)
 
 # columns in combined plot
 cols = 5
-cnt = 0
+plot_cnt = 0
 
 for (k, p) in predicates
-    show_x = length(predicates) - cnt < cols
-    show_y = cnt % cols == 0
+    show_x = length(predicates) - plot_cnt < cols
+    show_y = plot_cnt % cols == 0
 
     push!(plts,
         scatter([number_of_households[k]], [avg_contribution[k]],
@@ -138,7 +182,7 @@ for (k, p) in predicates
             legend = false)
     )
 
-    cnt += 1
+    plot_cnt += 1
 end
 
 # combine plot
