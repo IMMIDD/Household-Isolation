@@ -73,13 +73,10 @@ png(p, joinpath(folder, "settings_and_map.png"))
 
 dpr = gemsplot(rd, type = :CumulativeDiseaseProgressions,
     ylabel = "Disease State",
-    size = (400, 200))
+    size = (400, 200),
+    title = "")
 
-
-# HOUSEHOLD CONTRIBUTIONS
-
-# calculate contributions
-contributions = household_contribution_2(infs)
+png(dpr, joinpath(folder, "disease_progressions.png"))
 
 
 ##### CREATE HOUSEHOLD DATAFRAME WITH TYPE ATTRIBUTIONS #####
@@ -135,6 +132,35 @@ df.hh_contribution_ratio = coalesce.(df.hh_contribution_ratio, 0.0)
 
 
 
+
+# CALCULATE HOUSEHOLD CONTRIBUTIONS
+
+contributions = household_contribution_2(infs)
+
+# CALCULATE HOUSEHOLD TYPE CONTRIBUTIONS
+
+# join infections dataframe with household predicate data
+
+joined_df = infs |>
+    x -> DataFrames.select(x, :source_infection_id, :infection_id, :household_b => :hh_id) |>
+    x -> leftjoin(x, hhlds, on = :hh_id) |>
+    x -> sort(x, :infection_id)
+
+
+contribution_per_type = Dict()
+# rename household IDs to only "true" or "false", depending
+# on whether they match the predicates. This will cause the
+# household-contribution function to calculate the fraction 
+# of infections that involve this household type at any point
+for (k ,v) in predicates
+    joined_df |>
+        x -> DataFrames.select(x, :source_infection_id, :infection_id, Symbol(k) => :household_b) |>
+        x -> household_contribution_2(x) |>
+        x -> x.hh_contribution_ratio[x.hh_id] |> first |>
+        x -> contribution_per_type[k] = x
+end
+
+
 ##### ANALYZE HOUSEHOLD TYPE CONTRIBUTIONS #####
 
 # takes a dataframe and a function to extract data
@@ -168,6 +194,8 @@ avg_pos_contribution = apply_to_column(df, (df, c) -> mean(df.hh_contribution_ra
 # median contribution (excluding 0s)
 median_pos_contribution = apply_to_column(df, (df, c) ->  median(df.hh_contribution_ratio[df[!, c] .&& df.hh_contribution_ratio .> 0]))
 
+# contribution by size
+contribution_by_size_ratio = apply_to_column(df, (df, c) -> contribution_per_type[c] / number_of_households_ratio[c])
 
 ##### PLOTTING CONTRIBUTIONS #####
 
@@ -192,17 +220,18 @@ for (k, p) in predicates
     show_y = plot_cnt % cols == 0
 
     push!(plts,
-        scatter([number_of_households_ratio[k]], [avg_contribution[k]],
+        scatter([number_of_households_ratio[k]], [contribution_per_type[k]],
             # zcolor = number_of_households[k],
             # cmap=:reds,
             # clims = clims,
             #yaxis = show_y,
             xformatter = show_x ? x -> "$(Int64(round(100 * x)))%" : :none,
             #xformatter = show_x ? x -> x : :none,
-            yformatter = show_y ? y -> "$(@sprintf("%.4f", round(100 * y, digits = 4)))%" : :none,
+            #yformatter = show_y ? y -> "$(@sprintf("%.4f", round(100 * y, digits = 4)))%" : :none,
+            yformatter = show_x ? x -> "$(Int64(round(100 * x)))%" : :none,
             tickfontsize = 12,
-            xlims = xlims, 
-            ylims = ylims,
+            xlims = (0, 1), 
+            ylims = (0, 1),
             #markersize= 7.5 + 7.5 * number_of_households[k] / max_no_of_households,
             markersize= 10,
             color = :red,
@@ -265,7 +294,7 @@ combinations = Dict(
 
 plts = []
 for (comb, data) in combinations
-    p = plot(title = comb)
+    p = plot(title = comb, aspect_ratio = max_ratio_households / max_avg_contribution)
     for (k, col) in data
         scatter!(p, [number_of_households_ratio[k]], [avg_contribution[k]],
             xformatter = x -> "$(Int64(round(100 * x)))%",
@@ -273,17 +302,28 @@ for (comb, data) in combinations
             #tickfontsize = 12,
             xlims = xlims, 
             ylims = ylims,
-            markersize= 10,
+            markersize= 13,
             color = col,
             markerstrokewidth=0,
-            legend = :topright,
-            label = predicates[k][2]
+            legend = :outerright,
+            label = predicates[k][2],
+            tickfontsize = 12,
         )
     end
     push!(plts, p)
 end
 
-p = plot(plts..., layout = (2, 3), size = (1500, 1000))
+p = plot(plts..., layout = (2, 3), size = (2000, 800))
+
+
+DataFrame(
+    label = collect(keys(contribution_by_size_ratio)),
+    value = collect(values(contribution_by_size_ratio))
+) |>
+    x -> sort(x, :value) |>
+    x -> bar(x.value,
+    xticks=(1:length(x.label), x.label))
+
 
 ##### SIMULATIONS
 

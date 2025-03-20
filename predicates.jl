@@ -6,21 +6,30 @@ all_households(h, sim) = true
 # returns true in 30% of the cases
 rand34_percent(h, sim) = rand() < 0.34
 
+
 # SIZE
+
+# 1-person household
+i1(h, sim) = size(h) == 1
 
 # 2-person household
 i2(h, sim) = size(h) == 2
+i2plus(h, sim) = size(h) >= 2
 
 # 3-person household
 i3(h, sim) = size(h) == 3
+i3plus(h, sim) = size(h) >= 3
 
 # 4-person household
 i4(h, sim) = size(h) == 4
+i4plus(h, sim) = size(h) >= 4
 
 # 5-person household
 i5(h, sim) = size(h) == 5
+i5plus(h, sim) = size(h) >= 5
 
 # 6+-person household
+i6(h, sim) = size(h) == 6
 i6plus(h, sim) = size(h) >= 6
 
 # SCHOOL
@@ -30,6 +39,12 @@ with_schoolkids(h, sim) = sum(is_student.(individuals(h))) > 0
 
 # with school kids
 without_schoolkids(h, sim) = sum(is_student.(individuals(h))) == 0
+
+# 3-persons with school kids
+i2_with_schoolkids(h, sim) = size(h) == 2 && sum(is_student.(individuals(h))) > 0
+
+# 3-persons without school kids
+i2_without_schoolkids(h, sim) = size(h) == 2 && sum(is_student.(individuals(h))) == 0
 
 # 3-persons with school kids
 i3_with_schoolkids(h, sim) = size(h) == 3 && sum(is_student.(individuals(h))) > 0
@@ -101,3 +116,10 @@ i6plus_with_workers(h, sim) = size(h) >= 6 && sum(is_working.(individuals(h))) >
 
 # 6plus-persons without workers
 i6plus_without_workers(h, sim) = size(h) >= 6 && sum(is_working.(individuals(h))) == 0
+
+
+# WITHOUT ALL AND WITH ALL
+
+without_schoolkids_without_workers(h, sim) = without_schoolkids(h, sim) && without_workers(h, sim)
+
+with_schoolkids_with_workers(h, sim) = with_schoolkids(h, sim) && with_workers(h, sim)
