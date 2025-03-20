@@ -56,7 +56,7 @@ png(p, joinpath(folder, "settings_and_map.png"))
 # HOUSEHOLD CONTRIBUTIONS
 
 # calculate contributions
-contributions = household_contribution_fast(infs)
+contributions = household_contribution_2(infs)
 
 
 ##### CREATE HOUSEHOLD DATAFRAME WITH TYPE ATTRIBUTIONS #####
