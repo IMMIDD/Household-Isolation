@@ -20,7 +20,7 @@ function format_xticks(data)
         if i == length(data)
             push!(res,"$(data[i])+")
         else
-            push!(res, "$(data[i])-$(data[i+1]-1)")
+            push!(res, "$(data[i])-\n$(data[i+1]-1)")
         end
     end
     return res
@@ -131,21 +131,24 @@ function plot_settings(sim)
 
     # add households
     scatter!(p, hh_pnts.lon, hh_pnts.lat,
-        label = false,
+        label = "Households",
+        legendfontsize = 10,
         markerstrokewidth=0,
         markersize=1,
         markercolor = :black)
 
     # add schools
     scatter!(p, sc_pnts.lon, sc_pnts.lat,
-        label = false,
+        label = "Schools",
+        legendfontsize = 10,
         markerstrokewidth=0,
         markersize=1,
         markercolor = :blue)
 
     # add workplaces
     scatter!(p, off_pnts.lon, off_pnts.lat,
-        label = false,
+        label = "Workplaces",
+        legendfontsize = 10,
         markerstrokewidth=0,
         markersize=1,
         markercolor = :red)

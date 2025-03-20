@@ -1,3 +1,11 @@
+# MISC
+
+# returns true for all households
+all_households(h, sim) = true
+
+# returns true in 30% of the cases
+rand34_percent(h, sim) = rand() < 0.34
+
 # SIZE
 
 # 2-person household
@@ -47,16 +55,17 @@ i6plus_with_schoolkids(h, sim) = size(h) >= 6 && sum(is_student.(individuals(h))
 # 6plus-persons without school kids
 i6plus_without_schoolkids(h, sim) = size(h) >= 6 && sum(is_student.(individuals(h))) == 0
 
-# multiple school classes
-multiple_schools(h, sim) = (i -> i.schoolclass).(individuals(h)) |> unique |>
-    usc -> usc[usc .>= 0] |> sum > 1
 
 # get the school from a schoolclass setting object
 school(schoolclass, sim) = begin
     sch_year = settings(sim, contained_type(schoolclass))[contained(schoolclass)]
     return settings(sim, contained_type(sch_year))[contained(sch_year)]
 end
-   
+
+# multiple school classes
+multiple_schools(h, sim) = (i -> (is_student(i) ? school(schoolclass(i, sim), sim).id : -1)).(individuals(h)) |> unique |>
+    usc -> usc[usc .>= 0] |> sum > 1
+ 
 
 # big schools (at least one person in school with 150+ students)
 big_schools(h, sim) = sum((i -> (is_student(i) && size(school(schoolclass(i, sim), sim), sim) > 150 ? 1 : 0)).(individuals(h))) > 0
