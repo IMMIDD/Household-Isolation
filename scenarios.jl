@@ -1,21 +1,19 @@
-using GEMS, DataFrames, Plots, Statistics, StatsPlots, Printf, Distributions, Dates, Proj, JLD2
-
-using Pkg
-Pkg.add("Measures")
-using Measures
+using GEMS, DataFrames, Plots, Statistics, StatsPlots
+using Printf, Distributions, Dates, Proj, JLD2, Measures
 
 # INLCUDES
 include("predicates.jl")
 include("contributions.jl")
 include("contact_sampling.jl")
 include("model_analysis.jl")
+include("result_data_style.jl")
 
 # RUNNING INITIAL SIMULATION
 # function to initialize the test simulation
 init_sim() = Simulation("SL_model.toml", "SL", label = "custom contacts")
 sim = init_sim()
 run!(sim)
-rd = ResultData(sim)
+rd = ResultData(sim, style = "CustomRD") # this custom RD-style doesn't store strategies (prevents sim-object from being referenced in RDs)
 pp = PostProcessor(sim)
 infs = infections(pp)
 
@@ -97,7 +95,7 @@ predicates = Dict(
     "i6plus"            => (i6plus,                     "6plus-person households"),
     "w_school"          => (with_schoolkids,            "household with schoolkids"),
     "wo_school"         => (without_schoolkids,         "household without schoolkids"),
-    "mutliple_schools"  => (multiple_schools,           "kids in multiple different schools"),
+    "multiple_schools"  => (multiple_schools,           "kids in multiple different schools"),
     "i3_w_school"       => (i3_with_schoolkids,         "3p-household with schoolkids"),
     "i3_wo_school"      => (i3_without_schoolkids,      "3p-household without schoolkids"),
     "i4_w_school"       => (i4_with_schoolkids,         "4p-household with schoolkids"),
@@ -223,6 +221,70 @@ p = plot(plts..., size = (2000, 1400))
 png(p, joinpath(folder, "contribution_analysis.png"))
 
 
+# condensed plot
+
+combinations = Dict(
+    "General" => Dict(
+        "all" => :black,
+        "w_school" => :red,
+        "wo_school" => :blue,
+        "rand_34percent" => :indigo,
+        "big_schools" => :hotpink,
+        "multiple_schools" => :brown,
+        "i2" => :bisque4,
+    ),
+    "3-Person Households" => Dict(
+        "i3" => :black,
+        "i3_w_school" => :red,
+        "i3_wo_school" => :blue,
+        "i3_w_workers" => :green,
+        "i3_wo_workers" => :orange,
+    ),
+    "4-Person Households" => Dict(
+        "i4" => :black,
+        "i4_w_school" => :red,
+        "i4_wo_school" => :blue,
+        "i4_w_workers" => :green,
+        "i4_wo_workers" => :orange,
+    ),
+    "5-Person Households" => Dict(
+        "i5" => :black,
+        "i5_w_school" => :red,
+        "i5_wo_school" => :blue,
+        "i5_w_workers" => :green,
+        "i5_wo_workers" => :orange,
+    ),
+    "6+-Person Households" => Dict(
+        "i6plus" => :black,
+        "i6plus_w_school" => :red,
+        "i6plus_wo_school" => :blue,
+        "i6plus_w_workers" => :green,
+        "i6plus_wo_workers" => :orange,
+    )
+)
+
+plts = []
+for (comb, data) in combinations
+    p = plot(title = comb)
+    for (k, col) in data
+        scatter!(p, [number_of_households_ratio[k]], [avg_contribution[k]],
+            xformatter = x -> "$(Int64(round(100 * x)))%",
+            yformatter =  y -> "$(@sprintf("%.4f", round(100 * y, digits = 4)))%",
+            #tickfontsize = 12,
+            xlims = xlims, 
+            ylims = ylims,
+            markersize= 10,
+            color = col,
+            markerstrokewidth=0,
+            legend = :topright,
+            label = predicates[k][2]
+        )
+    end
+    push!(plts, p)
+end
+
+p = plot(plts..., layout = (2, 3), size = (1500, 1000))
+
 ##### SIMULATIONS
 
 # adds the household isolation scenario
@@ -253,7 +315,7 @@ for (k, p) in predicates
         sim.label = k
         scenario(sim, p[1])
         run!(sim)
-        rd = ResultData(sim, style = "LightRD")
+        rd = ResultData(sim, style = "CustomRD")
         res[k] = rd
     catch
     end
@@ -265,4 +327,4 @@ gemsplot(collect(values(res)), type = (:TickCases, :CumulativeCases, :EffectiveR
 #gemsplot(collect(values(res))[1], type = :CumulativeDiseaseProgressions)
 
 # store simulation data
-#JLD2.save_object(joinpath(folder, "sim_data.jld2"), res)
+JLD2.save_object(joinpath(folder, "sim_data.jld2"), res)
