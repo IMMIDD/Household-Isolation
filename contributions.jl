@@ -131,3 +131,40 @@ function household_contribution_2(input_infs)
 
     return hh_contributions
 end
+
+
+
+function household_contribution_deaths(input_infs)
+    total_deaths = sum(input_infs.death_tick .!= -1)
+
+    infs = input_infs |>
+        x -> sort(x, :infection_id) |>
+        x -> DataFrames.select(x, :source_infection_id, :infection_id, :household_b => :hh_id, :death_tick)
+
+    # caclulate sets of distinct infections
+    death_sets = Dict(i => Set{Int}() for i in infs.infection_id)
+    for i in nrow(infs):-1:1
+        src = infs.source_infection_id[i]
+        death = infs.death_tick[i]
+        if src != -1 && death != -1
+            push!(death_sets[src], infs.infection_id[i])
+            union!(death_sets[src], death_sets[infs.infection_id[i]]) 
+        end
+    end
+
+    # merge individual sets into household sets
+    hh_death_sets = Dict(hh => Set{Int}() for hh in unique(infs.hh_id))
+    for row in eachrow(infs)
+        union!(hh_death_sets[row.hh_id], death_sets[row.infection_id])
+    end
+
+    # calculate household contributions
+    hh_contributions = DataFrame(
+        hh_id = collect(keys(hh_death_sets)),
+        hh_contribution = [length(v) for v in values(hh_death_sets)]
+    )
+    hh_contributions.hh_contribution_ratio = hh_contributions.hh_contribution ./ total_deaths
+    sort!(hh_contributions, :hh_id)
+
+    return hh_contributions
+end
