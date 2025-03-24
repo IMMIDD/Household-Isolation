@@ -146,8 +146,10 @@ function household_contribution_deaths(input_infs)
     for i in nrow(infs):-1:1
         src = infs.source_infection_id[i]
         death = infs.death_tick[i]
-        if src != -1 && death != -1
-            push!(death_sets[src], infs.infection_id[i])
+        if src != -1 
+            if death != -1
+                push!(death_sets[src], infs.infection_id[i])
+            end
             union!(death_sets[src], death_sets[infs.infection_id[i]]) 
         end
     end
