@@ -28,13 +28,14 @@ quarantine_duration = 14
 
 
 # function to initialize the test simulation
-init_sim() = Simulation("SL_model.toml", "SL", label = "custom contacts")
+init_sim() = Simulation("SL_model.toml", "SL")
 #init_sim() = Simulation(label = "Baseline")
 
 baseline_rds = ResultData[]
 baseline_infections = DataFrame[]
 for i in 1:num_of_baseline_sims
     sim = init_sim()
+    sim.label = "Baseline"
     run!(sim)
     # this custom RD-style doesn't store strategies (prevents sim-object from being referenced in RDs)
     pp = PostProcessor(sim)
