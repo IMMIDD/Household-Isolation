@@ -19,7 +19,7 @@ mkpath(folder)
 ##### GLOBAL PARAMETERS
 #####
 
-num_of_baseline_sims = 3
+num_of_baseline_sims = 1
 num_of_scenario_sims = 3
 quarantine_duration = 14
 
@@ -60,6 +60,11 @@ baseline_sim = init_sim()
 ##### BASELINE ANALYSIS
 #####
 
+# --> BASELINE OUTCOMES
+
+baseline_outcomes = outcomes.(baseline_rds) |> df_from_outcomes |> summarize_outcomes
+JLD2.save_object(joinpath(folder, "baseline_outcomes.jld2"), baseline_outcomes)
+
 # --> BASELINE DISEASE PROGRESSION
 
 # plot baseline analysis
@@ -81,7 +86,8 @@ p_baseline = plot(
         titlefontsize = 12,
         ylabel = ""),
     layout = (1, 3),
-    size = (1200, 300)
+    size = (1200, 300),
+    fontfamily = "Times Roman",
 )
 png(p_baseline, joinpath(folder, "baseline.png"))
 
@@ -128,6 +134,7 @@ l = @layout [a{0.7w} grid(3, 1)]
 p = plot(
     setting_map, hh_plot, wp_plot, s_plot,
     layout = l,
+    fontfamily = "Times Roman",
 )
 png(p, joinpath(folder, "settings_and_map.png"))
 
@@ -151,24 +158,24 @@ size_predicates = OrderedDict(
 # predicate functions that filter for composition-based
 # household types "identifier" => (function(h, sim), label)
 composition_predicates = OrderedDict(
-    "all_compositions"         => (all_sizes,                  "all compositions",                    :circle),    
+    "all_compositions"         => (all_sizes,                  "all compositions",                    :circle, :black),    
     # school
-    "w_schoolkids"             => (w_schoolkids,               "with schoolkids",                     :utriangle),
-    "w_1_schoolkid"            => (w_1_schoolkid,              "with 1 schoolkid",                    :utriangle),
-    "w_2plus_schoolkid"        => (w_2plus_schoolkids,          "with 2+ schoolkids",                 :utriangle),
-    "wo_schoolkids"            => (wo_schoolkids,              "without schoolkids",                  :utriangle),
-    "multiple_schools"         => (multiple_schools,           "with kids in multiple schools",       :utriangle),
-    "big_schools"              => (big_schools,                "with 1+ kid in big schools",          :utriangle),
+    "w_schoolkids"             => (w_schoolkids,               "with schoolkids",                     :circle,    :red),
+    "w_1_schoolkid"            => (w_1_schoolkid,              "with 1 schoolkid",                    :square,    :red),
+    "w_2plus_schoolkid"        => (w_2plus_schoolkids,         "with 2+ schoolkids",                  :utriangle, :red),
+    "wo_schoolkids"            => (wo_schoolkids,              "without schoolkids",                  :dtriangle, :red),
+    "multiple_schools"         => (multiple_schools,           "with kids in multiple schools",       :diamond,   :red),
+    "big_schools"              => (big_schools,                "with 1+ kid in big schools",          :pentagon,  :red),
     #workers
-    "w_workers"                => (w_workers,                  "with workers",                        :diamond),
-    "w_1_worker"               => (w_1_worker,                 "with 1 worker",                       :diamond),
-    "w_2plus_worker"           => (w_2plus_workers,            "with 2+ workers",                     :diamond),
-    "wo_workers"               => (wo_workers,                 "without workers",                     :diamond),
+    "w_workers"                => (w_workers,                  "with workers",                        :circle,    :blue),
+    "w_1_worker"               => (w_1_worker,                 "with 1 worker",                       :square,    :blue),
+    "w_2plus_worker"           => (w_2plus_workers,            "with 2+ workers",                     :utriangle, :blue),
+    "wo_workers"               => (wo_workers,                 "without workers",                     :dtriangle, :blue),
     # combinations
-    "w_schoolkids_w_workers"   => (w_schoolkids_w_workers,     "with schoolkids; with workers",       :square),
+    "w_schoolkids_w_workers"   => (w_schoolkids_w_workers,     "with schoolkids; with workers",       :circle,    :orange),
     #"w_schoolkids_wo_workers"  => (w_schoolkids_wo_workers,    "with schoolkids; without workers",    :square),
-    "wo_schoolkids_w_workers"  => (wo_schoolkids_w_workers,    "without schoolkids; with workers",    :square),
-    "wo_schoolkids_wo_workers" => (wo_schoolkids_wo_workers,   "without schoolkids; without workers", :square),
+    "wo_schoolkids_w_workers"  => (wo_schoolkids_w_workers,    "without schoolkids; with workers",    :diamond,   :orange),
+    "wo_schoolkids_wo_workers" => (wo_schoolkids_wo_workers,   "without schoolkids; without workers", :pentagon,  :orange),
 )
 
 # predicate functions that filter for minimum-size-based
@@ -225,7 +232,7 @@ for infs in baseline_infections
     # of infections that involve this household type at any point
     res = OrderedDict()
     for (k ,v) in predicates
-        subinfo("Infection contribution of $k")
+        println(subinfo("Infection contribution of $k"))
         joined_df |>
             x -> DataFrames.select(x, :source_infection_id, :infection_id, Symbol(k) => :household_b) |>
             x -> household_contribution_2(x) |>
@@ -251,6 +258,8 @@ end
 ##### CALCULATE DEATH CONTRIBUTIONS
 #####
 
+printinfo("START CALCULATING DEATH CONTRIBUTIONS")
+
 # calculate death contributions for each of the baseline runs
 death_contribution_per_type = OrderedDict[]
 for infs in baseline_infections
@@ -267,7 +276,7 @@ for infs in baseline_infections
     # of infections that involve this household type at any point
     res = OrderedDict()
     for (k ,v) in predicates
-        subinfo("Death contribution of $k")
+        println(subinfo("Death contribution of $k"))
         joined_df |>
             x -> DataFrames.select(x, :source_infection_id, :infection_id, :death_tick, Symbol(k) => :household_b) |>
             x -> household_contribution_deaths(x) |>
@@ -337,9 +346,10 @@ p_relative_contribution = DataFrame(
     x -> sort(x, :value, rev = true) |>
     x -> bar( x.value, xrotation=90,
         xticks=(1:length(x.label), x.label),
-        tickfontsize = 12,
+        tickfontsize = 11,
         bottom_margin = 50mm,
-        size = (2000, 800))
+        size = (2000, 800),
+        fontfamily = "Times Roman",)
 
 png(p_relative_contribution, joinpath(folder, "relative_contribution_per_type_and_number_of_people.png"))
 
@@ -386,14 +396,14 @@ for i in 1:length(size_limit_predicates)
     contributions = val_range(mean_contribution_per_type, filter_range)
     people = val_range(number_of_people_ratio, filter_range)
     
-    show_x = i >= 5
-    show_y = (i-1) % 4 == 0
+    show_x = i >= 4
+    show_y = (i-1) % 3 == 0
 
     p = plot(
         xformatter = show_x ? x -> "$(Int64(round(100 * x)))%" : :none,
         yformatter = show_y ? y -> "$(Int64(round(100 * y)))%" : :none,
-        xlabelfontsize = 18,
-        ylabelfontsize = 18,
+        xlabelfontsize = 20,
+        ylabelfontsize = 20,
         xlabel = show_x ? "% of people living in \n this HH type" : "",
         ylabel = show_y ? "% of infection chains\n involving this HH type" : "",
         leftmargin = show_y ? 15mm : 0mm,
@@ -408,9 +418,9 @@ for i in 1:length(size_limit_predicates)
 
     for x in eachindex(contributions)
         scatter!(p, [people[x]], [contributions[x]],
-            color = colors[x],
+            color = val_id(composition_predicates,x)[4],
             markerstrokewidth=0,
-            markersize= 12,
+            markersize= 10,
             marker=(val_id(composition_predicates,x)[3]),
             label = val_id(composition_predicates,x)[2]
         )
@@ -425,14 +435,14 @@ gp = plot(
     xlims = (0,1),
     ylims = (0,1),
     framestyle=:none,
-    legendfontsize = 13,
-    legend=:bottomleft,
+    legendfontsize = 14,
+    legend=:left,
     bottommargin = 5mm
 )
 cnt = 1
 for (k, p) in composition_predicates
     scatter!(gp, [0.5],[0.5],
-        color = colors[cnt],
+        color = p[4],
         markerstrokewidth=0,
         marker=(p[3]),
         label = p[2])
@@ -441,10 +451,16 @@ end
 
 push!(plts, gp)
 
+l = @layout [
+    [grid(2,3)] a{0.22w}
+]
+
 p = plot(plts...,
     fontfamily = "Times Roman",
     size = (2000, 1000),
-    layout = (2, 4))
+    #layout = (2, 4))
+    layout = l)
+
 
 png(p, joinpath(folder, "contribution_analysis.png"))
 
