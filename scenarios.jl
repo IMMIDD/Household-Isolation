@@ -29,7 +29,7 @@ quarantine_duration = 14
 
 
 # function to initialize the test simulation
-init_sim() = Simulation("SL_model.toml", "SL")
+init_sim() = Simulation("SL_model_fast.toml", "SL")
 #init_sim() = Simulation(label = "Baseline")
 
 baseline_rds = ResultData[]
