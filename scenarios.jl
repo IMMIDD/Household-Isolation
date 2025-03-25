@@ -9,6 +9,7 @@ include("contributions.jl")
 include("contact_sampling.jl")
 include("model_analysis.jl")
 include("result_data_style.jl")
+include("output_analysis.jl")
 
 # RESULT FOLDER
 folder = joinpath("results", "$(Dates.format(Dates.now(), "yyyy-mm-dd_HH-MM-SS_sss"))")
@@ -29,7 +30,7 @@ quarantine_duration = 14
 printinfo("START RUNNING BASELINE SIMULATIONS")
 
 # function to initialize the test simulation
-init_sim() = Simulation("SL_model.toml", "SL")
+init_sim() = Simulation("SL_model_fast.toml", "SL")
 #init_sim() = Simulation(label = "Baseline")
 
 baseline_rds = ResultData[]
@@ -502,3 +503,5 @@ end
 
 # store simulation data
 JLD2.save_object(joinpath(folder, "sim_data.jld2"), res)
+
+
