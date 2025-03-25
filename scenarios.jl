@@ -26,6 +26,7 @@ quarantine_duration = 14
 ##### RUNNING BASELINE SIMULATIONS
 #####
 
+printinfo("START RUNNING BASELINE SIMULATIONS")
 
 # function to initialize the test simulation
 init_sim() = Simulation("SL_model.toml", "SL")
@@ -182,7 +183,7 @@ size_limit_predicates = OrderedDict(
 
 # all predicate (size-composition) combinations
 predicates = OrderedDict()
-for (s, p1) in size_predicates
+for (s, p1) in size_limit_predicates
     for (c, p2) in composition_predicates
         predicates["$(s)_$c"] = ((h, sim) -> (p1[1](h, sim) && p2[1](h, sim)), "$(p1[2]); $(p2[2])")
     end
@@ -205,6 +206,8 @@ end
 ##### CALCULATE CONTRIBUTIONS
 #####
 
+printinfo("START CALCULATING INFECTION CONTRIBUTIONS")
+
 # calculate contributions for each of the baseline runs
 contribution_per_type = OrderedDict[]
 for infs in baseline_infections
@@ -221,6 +224,7 @@ for infs in baseline_infections
     # of infections that involve this household type at any point
     res = OrderedDict()
     for (k ,v) in predicates
+        subinfo("Infection contribution of $k")
         joined_df |>
             x -> DataFrames.select(x, :source_infection_id, :infection_id, Symbol(k) => :household_b) |>
             x -> household_contribution_2(x) |>
@@ -262,6 +266,7 @@ for infs in baseline_infections
     # of infections that involve this household type at any point
     res = OrderedDict()
     for (k ,v) in predicates
+        subinfo("Death contribution of $k")
         joined_df |>
             x -> DataFrames.select(x, :source_infection_id, :infection_id, :death_tick, Symbol(k) => :household_b) |>
             x -> household_contribution_deaths(x) |>
@@ -374,7 +379,7 @@ shapes = []
 
 
 plts = []
-for i in 1:length(size_predicates)
+for i in 1:length(size_limit_predicates)
     # extract values from flat ordered dictionaries
     filter_range = ((i-1) * num_of_compositions + 1):(i * num_of_compositions)
     contributions = val_range(mean_contribution_per_type, filter_range)
@@ -396,7 +401,7 @@ for i in 1:length(size_predicates)
         titlefontsize = 20,
         xlims = (0, 1.1), 
         ylims = (0, 1.1),
-        title = val_id(size_predicates, i)[2],
+        title = val_id(size_limit_predicates, i)[2],
         legend = false
     )
 
@@ -478,7 +483,7 @@ function scenario(sim, predicate)
 end
 
 # run simulations per predicate
-res = Dict{String, ResultData}()
+res = ResultData[]
 cnt = 0
 for (k, p) in sim_predicates
     for i in 1:num_of_scenario_sims
@@ -489,16 +494,11 @@ for (k, p) in sim_predicates
             scenario(sim, p[1])
             run!(sim)
             rd = ResultData(sim, style = "CustomRD")
-            res[k] = rd
+            push!(res, rd)
         catch
         end
     end
 end
-
-
-# gemsplot(collect(values(res)), type = (:TickCases, :CumulativeCases, :EffectiveReproduction), size = (1000, 1500))
-
-# gemsplot(collect(values(res))[1], type = :CumulativeDiseaseProgressions)
 
 # store simulation data
 JLD2.save_object(joinpath(folder, "sim_data.jld2"), res)
