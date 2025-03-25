@@ -149,34 +149,34 @@ size_predicates = OrderedDict(
 # predicate functions that filter for composition-based
 # household types "identifier" => (function(h, sim), label)
 composition_predicates = OrderedDict(
-    "all_compositions"         => (all_sizes,                  "all compositions"),    
+    "all_compositions"         => (all_sizes,                  "all compositions",                    :circle),    
     # school
-    "w_schoolkids"             => (w_schoolkids,               "with schoolkids"),
-    "w_1_schoolkid"            => (w_1_schoolkid,              "with 1 schoolkid"),
-    "w_2plus_schoolkid"        => (w_2plus_schoolkids,          "with 2+ schoolkids"),
-    "wo_schoolkids"            => (wo_schoolkids,              "without schoolkids"),
-    "multiple_schools"         => (multiple_schools,           "with kids in multiple schools"),
-    "big_schools"              => (big_schools,                "with 1+ kid in big schools"),
+    "w_schoolkids"             => (w_schoolkids,               "with schoolkids",                     :utriangle),
+    "w_1_schoolkid"            => (w_1_schoolkid,              "with 1 schoolkid",                    :utriangle),
+    "w_2plus_schoolkid"        => (w_2plus_schoolkids,          "with 2+ schoolkids",                 :utriangle),
+    "wo_schoolkids"            => (wo_schoolkids,              "without schoolkids",                  :utriangle),
+    "multiple_schools"         => (multiple_schools,           "with kids in multiple schools",       :utriangle),
+    "big_schools"              => (big_schools,                "with 1+ kid in big schools",          :utriangle),
     #workers
-    "w_workers"                => (w_workers,                  "with workers"),
-    "w_1_worker"               => (w_1_worker,                 "with 1 worker"),
-    "w_2plus_worker"           => (w_2plus_workers,            "with 2+ workers"),
-    "wo_workers"               => (wo_workers,                 "without workers"),
+    "w_workers"                => (w_workers,                  "with workers",                        :diamond),
+    "w_1_worker"               => (w_1_worker,                 "with 1 worker",                       :diamond),
+    "w_2plus_worker"           => (w_2plus_workers,            "with 2+ workers",                     :diamond),
+    "wo_workers"               => (wo_workers,                 "without workers",                     :diamond),
     # combinations
-    "w_schoolkids_w_workers"   => (w_schoolkids_w_workers,     "with schoolkids; with workers"),
-    "w_schoolkids_wo_workers"  => (w_schoolkids_wo_workers,    "with schoolkids; without workers"),
-    "wo_schoolkids_w_workers"  => (wo_schoolkids_w_workers,    "without schoolkids; with workers"),
-    "wo_schoolkids_wo_workers" => (wo_schoolkids_wo_workers,   "without schoolkids; without workers"),
+    "w_schoolkids_w_workers"   => (w_schoolkids_w_workers,     "with schoolkids; with workers",       :square),
+    #"w_schoolkids_wo_workers"  => (w_schoolkids_wo_workers,    "with schoolkids; without workers",    :square),
+    "wo_schoolkids_w_workers"  => (wo_schoolkids_w_workers,    "without schoolkids; with workers",    :square),
+    "wo_schoolkids_wo_workers" => (wo_schoolkids_wo_workers,   "without schoolkids; without workers", :square),
 )
 
 # predicate functions that filter for minimum-size-based
 # household types "identifier" => (function(h, sim), label)
 size_limit_predicates = OrderedDict(
-    "all sizes"                => (all_sizes,                  "all sizes"),
-    "i2plus"                   => (i2plus,                     "2 persons"),
-    "i3plus"                   => (i3plus,                     "3 persons"),
-    "i4plus"                   => (i4plus,                     "4 persons"),
-    "i5plus"                   => (i5plus,                     "5 persons"),
+    "all_sizes"                => (all_sizes,                  "all sizes"),
+    "i2plus"                   => (i2plus,                     "2+ persons"),
+    "i3plus"                   => (i3plus,                     "3+ persons"),
+    "i4plus"                   => (i4plus,                     "4+ persons"),
+    "i5plus"                   => (i5plus,                     "5+ persons"),
     "i6plus"                   => (i6plus,                     "6+ persons")
 )
 
@@ -243,6 +243,48 @@ end
 
 
 #####
+##### CALCULATE DEATH CONTRIBUTIONS
+#####
+
+# calculate death contributions for each of the baseline runs
+death_contribution_per_type = OrderedDict[]
+for infs in baseline_infections
+
+    # join infections dataframe with household predicate data
+    joined_df = infs |>
+        x -> DataFrames.select(x, :source_infection_id, :infection_id, :death_tick, :household_b => :hh_id) |>
+        x -> leftjoin(x, hhlds, on = :hh_id) |>
+        x -> sort(x, :infection_id)
+
+    # rename household IDs to only "true" or "false", depending
+    # on whether they match the predicates. This will cause the
+    # household-contribution function to calculate the fraction 
+    # of infections that involve this household type at any point
+    res = OrderedDict()
+    for (k ,v) in predicates
+        joined_df |>
+            x -> DataFrames.select(x, :source_infection_id, :infection_id, :death_tick, Symbol(k) => :household_b) |>
+            x -> household_contribution_deaths(x) |>
+            x -> x.hh_contribution_ratio[x.hh_id] |>
+            x -> res[k] = length(x) == 0 ? 0 : first(x) # set 0 if no contribution was found
+    end
+
+    push!(death_contribution_per_type, res)    
+end
+
+# store JLD object
+JLD2.save_object(joinpath(folder, "death_contribution_per_type.jld2"), death_contribution_per_type)
+
+
+# calculate mean over all contribution calculations
+mean_death_contribution_per_type = OrderedDict()
+for (k, p) in predicates
+    mean_death_contribution_per_type[k] = mean([conts[k] for conts in death_contribution_per_type])
+end
+
+
+
+#####
 ##### ANALYZE HOUSEHOLD TYPE CONTRIBUTIONS
 #####
 
@@ -274,6 +316,10 @@ contribution_by_size_ratio = apply_to_column(hhlds, (df, c) -> mean_contribution
 # contribution by people 
 contribution_by_people_ratio = apply_to_column(hhlds, (df, c) -> mean_contribution_per_type[c] / number_of_people_ratio[c])
 
+# death contribution by infection contribution
+death_contribution_by_infection_contribution_ratio = apply_to_column(hhlds, (df, c) -> mean_death_contribution_per_type[c] / mean_contribution_per_type[c])
+
+
 # --> PLOT RELATIVE CONTRIBUTION BY NUMBER OF PEOPLE IN GROUP
 
 # plot bar chart of relative contribution
@@ -291,6 +337,23 @@ p_relative_contribution = DataFrame(
 
 png(p_relative_contribution, joinpath(folder, "relative_contribution_per_type_and_number_of_people.png"))
 
+# --> PLOT RELATIVE DEATH CONTRIBUTION BY RELATIVE INFECTION CONTRIBUTION
+
+# plot bar chart of relative death contribution
+# by relative infection contribution
+p_relative_death_contribution = DataFrame(
+    label = collect(keys(death_contribution_by_infection_contribution_ratio)),
+    value = collect(values(death_contribution_by_infection_contribution_ratio))
+) |>
+    x -> sort(x, :value, rev = true) |>
+    x -> bar(x.value, xrotation=90,
+        xticks=(1:length(x.label), x.label),
+        tickfontsize = 12,
+        bottom_margin = 50mm,
+        size = (2000, 800))
+
+png(p_relative_death_contribution, joinpath(folder, "relative_death_contr_by_infection_contr.png"))
+
 
 # --> PLOT CONTRIBUTION BY SIZE AND COMPOSITION
 
@@ -306,7 +369,9 @@ num_of_compositions = length(composition_predicates)
 labels = collect(keys(composition_predicates))
 # color palette
 #colors = palette(:Set1, num_of_compositions)
-colors = distinguishable_colors(14)
+colors = distinguishable_colors(length(composition_predicates))
+shapes = []
+
 
 plts = []
 for i in 1:length(size_predicates)
@@ -340,6 +405,7 @@ for i in 1:length(size_predicates)
             color = colors[x],
             markerstrokewidth=0,
             markersize= 12,
+            marker=(val_id(composition_predicates,x)[3]),
             label = val_id(composition_predicates,x)[2]
         )
     end
@@ -362,6 +428,7 @@ for (k, p) in composition_predicates
     scatter!(gp, [0.5],[0.5],
         color = colors[cnt],
         markerstrokewidth=0,
+        marker=(p[3]),
         label = p[2])
     cnt += 1
 end
@@ -412,8 +479,10 @@ end
 
 # run simulations per predicate
 res = Dict{String, ResultData}()
+cnt = 0
 for (k, p) in sim_predicates
-    for i in 1:num_of_scenario_sims    
+    for i in 1:num_of_scenario_sims
+        printinfo("Running simulation $(cnt += 1)/$(length(sim_predicates) * num_of_scenarios)")
         try # try-catch block is important so the stuff don't crash if run without geolocalized test-model
             sim = init_sim()
             sim.label = k
