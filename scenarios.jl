@@ -9,6 +9,7 @@ include("contributions.jl")
 include("contact_sampling.jl")
 include("model_analysis.jl")
 include("result_data_style.jl")
+include("output_analysis.jl")
 
 # RESULT FOLDER
 folder = joinpath("results", "$(Dates.format(Dates.now(), "yyyy-mm-dd_HH-MM-SS_sss"))")
@@ -478,7 +479,7 @@ function scenario(sim, predicate)
 end
 
 # run simulations per predicate
-res = Dict{String, ResultData}()
+res = ResultData[]
 cnt = 0
 for (k, p) in sim_predicates
     for i in 1:num_of_scenario_sims
@@ -489,7 +490,7 @@ for (k, p) in sim_predicates
             scenario(sim, p[1])
             run!(sim)
             rd = ResultData(sim, style = "CustomRD")
-            res[k] = rd
+            push!(res, rd)
         catch
         end
     end
@@ -502,3 +503,5 @@ end
 
 # store simulation data
 JLD2.save_object(joinpath(folder, "sim_data.jld2"), res)
+
+
