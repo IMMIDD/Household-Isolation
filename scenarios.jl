@@ -19,8 +19,8 @@ mkpath(folder)
 ##### GLOBAL PARAMETERS
 #####
 
-num_of_baseline_sims = 1
-num_of_scenario_sims = 3
+num_of_baseline_sims = 10
+num_of_scenario_sims = 10
 quarantine_duration = 14
 
 #####
@@ -30,7 +30,7 @@ quarantine_duration = 14
 printinfo("START RUNNING BASELINE SIMULATIONS")
 
 # function to initialize the test simulation
-init_sim() = Simulation("SL_model_fast.toml", "SL")
+init_sim() = Simulation("SL_model.toml", "SL")
 #init_sim() = Simulation(label = "Baseline")
 
 baseline_rds = ResultData[]
@@ -504,7 +504,7 @@ res = ResultData[]
 cnt = 0
 for (k, p) in sim_predicates
     for i in 1:num_of_scenario_sims
-        printinfo("Running simulation $(cnt += 1)/$(length(sim_predicates) * num_of_scenarios)")
+        printinfo("Running simulation $(cnt += 1)/$(length(sim_predicates) * num_of_scenario_sims)")
         try # try-catch block is important so the stuff don't crash if run without geolocalized test-model
             sim = init_sim()
             sim.label = k
@@ -520,4 +520,14 @@ end
 # store simulation data
 JLD2.save_object(joinpath(folder, "sim_data.jld2"), res)
 
+
+#####
+##### SIMULATION RESULT ANALYSIS
+#####
+
+# build dataframe of outcomes
+sim_outcomes = outcomes.(res) |> df_from_outcomes #|> summarize_outcomes
+
+# calculate differences to baseline
+calc_diff(outcomes.(res) |> df_from_outcomes, baseline_outcomes)
 
