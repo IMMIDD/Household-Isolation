@@ -7,7 +7,8 @@ function outcomes(rd)
         "deaths" => tick_deaths(rd).death_cnt |> sum,
         "quarantine_days" => cumulative_quarantines(rd).quarantined |> sum,
         "lost_workdays" => cumulative_quarantines(rd).workers |> sum,
-        "lost_schooldays" => cumulative_quarantines(rd).students |> sum
+        "lost_schooldays" => cumulative_quarantines(rd).students |> sum,
+        "lost_otherdays" => cumulative_quarantines(rd).other |> sum
     )
 end
 
@@ -20,11 +21,12 @@ function df_from_outcomes(outcomes::Vector)
         deaths = [],
         quarantine_days = [],
         lost_workdays = [],
-        lost_schooldays = []
+        lost_schooldays = [],
+        lost_otherdays = []
     )
 
     for o in outcomes
-        push!(res, (o["scenario"], o["r0"], o["infections"], o["deaths"], o["quarantine_days"], o["lost_workdays"], o["lost_schooldays"]))
+        push!(res, (o["scenario"], o["r0"], o["infections"], o["deaths"], o["quarantine_days"], o["lost_workdays"], o["lost_schooldays"], o["lost_otherdays"]))
     end
 
     return res
@@ -41,7 +43,8 @@ function summarize_outcomes(outcomes_df)
             :deaths => mean => :deaths,
             :quarantine_days => mean => :quarantine_days,
             :lost_workdays => mean => :lost_workdays,
-            :lost_schooldays => mean => :lost_schooldays
+            :lost_schooldays => mean => :lost_schooldays,
+            :lost_otherdays => mean => :lost_otherdays
         )
 end
 
@@ -54,6 +57,12 @@ function calc_diff(scenarios, baseline)
             :deaths => ByRow(d -> baseline.deaths[1] - d) => :deaths_diff,
             :quarantine_days => ByRow(q -> baseline.quarantine_days[1] - q) => :quarantine_days_diff,
             :lost_workdays => ByRow(w -> baseline.lost_workdays[1] - w) => :lost_workdays_diff,
-            :lost_schooldays => ByRow(s -> baseline.lost_schooldays[1] - s) => :lost_schooldays_diff
+            :lost_schooldays => ByRow(s -> baseline.lost_schooldays[1] - s) => :lost_schooldays_diff,
+            :lost_otherdays => ByRow(s -> baseline.lost_otherdays[1] - s) => :lost_otherdays_diff) |>
+        x -> transform(x, [:r0_diff, :quarantine_days] => ByRow((r, q) -> q / (10 * r)) => :qdays_per_r0_diff) |>
+        x -> transform(x,
+            [:qdays_per_r0_diff, :lost_schooldays, :quarantine_days] => ByRow((r, s, q) -> r * s / q) => :q_ratio_school,
+            [:qdays_per_r0_diff, :lost_workdays, :quarantine_days] => ByRow((r, w, q) -> r * w / q) => :q_ratio_work,
+            [:qdays_per_r0_diff, :lost_otherdays, :quarantine_days] => ByRow((r, o, q) -> r * o / q) => :q_ratio_other
         )
 end

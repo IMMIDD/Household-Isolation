@@ -19,18 +19,18 @@ mkpath(folder)
 ##### GLOBAL PARAMETERS
 #####
 
-num_of_baseline_sims = 10
-num_of_scenario_sims = 10
+num_of_baseline_sims = 3
+num_of_scenario_sims = 1
 quarantine_duration = 14
 
-#####
+##### 
 ##### RUNNING BASELINE SIMULATIONS
 #####
 
 printinfo("START RUNNING BASELINE SIMULATIONS")
 
 # function to initialize the test simulation
-init_sim() = Simulation("SL_model.toml", "SL")
+init_sim() = Simulation("SL_model_other.toml", "SL")
 #init_sim() = Simulation(label = "Baseline")
 
 baseline_rds = ResultData[]
@@ -529,5 +529,92 @@ JLD2.save_object(joinpath(folder, "sim_data.jld2"), res)
 sim_outcomes = outcomes.(res) |> df_from_outcomes #|> summarize_outcomes
 
 # calculate differences to baseline
-calc_diff(outcomes.(res) |> df_from_outcomes, baseline_outcomes)
+sim_diffs = calc_diff(outcomes.(res) |> df_from_outcomes, baseline_outcomes)
 
+
+# find pareto optimal frontier of effectiveness and efficiency
+quarantine_pareto = sim_diffs |>
+    x -> DataFrames.select(x, :scenario, :r0_diff, :quarantine_days, :lost_schooldays, :lost_workdays) |>
+    x -> x[x.r0_diff .>= 0, :] # filter values with positive R-Reduction
+
+quarantine_pareto.quarantine_pareto_optimal = fill(false, nrow(quarantine_pareto))
+quarantine_pareto.schooldays_pareto_optimal = fill(false, nrow(quarantine_pareto))
+quarantine_pareto.workdays_pareto_optimal = fill(false, nrow(quarantine_pareto))
+quarantine_pareto.quarantine_color = fill(:lightgrey, nrow(quarantine_pareto))
+quarantine_pareto.schooldays_color = fill(:red, nrow(quarantine_pareto))
+quarantine_pareto.workdays_color = fill(:red, nrow(quarantine_pareto))
+
+for i in 1:nrow(quarantine_pareto)
+    r_diff = quarantine_pareto.r0_diff[i]
+    q_days = quarantine_pareto.quarantine_days[i]
+    s_days = quarantine_pareto.lost_schooldays[i]
+    w_days = quarantine_pareto.lost_workdays[i]
+
+    # total quarantines
+    if quarantine_pareto.scenario[
+        quarantine_pareto.r0_diff .> r_diff .&&
+        quarantine_pareto.quarantine_days .<= q_days] |> isempty
+        
+        quarantine_pareto.quarantine_pareto_optimal[i] = true
+        quarantine_pareto.quarantine_color[i] = :black
+    end
+
+    # total lost school days
+    if quarantine_pareto.scenario[
+        quarantine_pareto.r0_diff .> r_diff .&&
+        quarantine_pareto.lost_schooldays .<= s_days] |> isempty
+        
+        quarantine_pareto.schooldays_pareto_optimal[i] = true
+        quarantine_pareto.schooldays_color[i] = :blue
+    end
+
+            # total quarantines
+    if quarantine_pareto.scenario[
+        quarantine_pareto.r0_diff .> r_diff .&&
+        quarantine_pareto.lost_workdays .<= w_days] |> isempty
+        
+        quarantine_pareto.workdays_pareto_optimal[i] = true
+        quarantine_pareto.workdays_color[i] = :blue
+    end
+end
+
+p_quarantine = scatter(quarantine_pareto.quarantine_days, quarantine_pareto.r0_diff,
+    color = quarantine_pareto.quarantine_color,
+    title = "Total Quarantine Days",
+#   size = (800, 600),
+    legend = false,
+    markerstrokewidth = 0,
+    ylabel = "R0-Reduction",
+    xlabel = "Cumulative Quarantine Days")
+
+p_schooldays = scatter(quarantine_pareto.lost_schooldays, quarantine_pareto.r0_diff,
+    color = quarantine_pareto.schooldays_color,
+    title = "Lost School Days",
+#   size = (800, 600),
+    legend = false,
+    markerstrokewidth = 0,
+    ylabel = "R0-Reduction",
+    xlabel = "Cumulative Lost School Days")
+
+p_workdays = scatter(quarantine_pareto.lost_workdays, quarantine_pareto.r0_diff,
+    color = quarantine_pareto.workdays_color,
+    title = "Lost Workdays",
+#   size = (800, 600),
+    legend = false,
+    markerstrokewidth = 0,
+    ylabel = "R0-Reduction",
+    xlabel = "Cumulative Lost Workdays Days")
+
+
+p_pareto = plot(
+    p_quarantine,
+    p_schooldays,
+    p_workdays,
+    layout = (1,3),
+    size = (1400, 400),
+    left_margin = 6mm,
+    bottom_margin = 10mm,
+    fontfamily = "Times Roman",
+)
+
+png(p_pareto, joinpath(folder, "pareto_fronts.png"))
