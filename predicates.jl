@@ -48,9 +48,13 @@ school(schoolclass, sim) = begin
 end
 
 # multiple different schools
-multiple_schools(h, sim) = (i -> (is_student(i) ? school(schoolclass(i, sim), sim).id : -1)).(individuals(h)) |> unique |>
-    usc -> usc[usc .>= 0] |> sum > 1
- 
+multiple_schools(h, sim) = individuals(h) |>
+    inds -> inds[is_student.(inds)] |> # filter for school kids
+    inds -> (i -> schoolclass(i, sim)).(inds) |> # get classes
+    classes -> (sc -> school(sc, sim)).(classes) |> # get schools
+    unique |> # get number of different ones
+    length > 1 # check if those are more than 1
+
 # big schools (at least one person in school with 150+ students)
 big_schools(h, sim) = sum((i -> (is_student(i) && size(school(schoolclass(i, sim), sim), sim) > 150 ? 1 : 0)).(individuals(h))) > 0
 
