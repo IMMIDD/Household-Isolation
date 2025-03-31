@@ -161,14 +161,14 @@ composition_predicates = OrderedDict(
     "all_compositions"         => (all_sizes,                  "all compositions",                    :circle, :black),    
     # school
     "w_schoolkids"             => (w_schoolkids,               "with schoolkids",                     :circle,    :red),
-    "w_1_schoolkid"            => (w_1_schoolkid,              "with 1 schoolkid",                    :square,    :red),
+    #"w_1_schoolkid"            => (w_1_schoolkid,              "with 1 schoolkid",                    :square,    :red),
     "w_2plus_schoolkid"        => (w_2plus_schoolkids,         "with 2+ schoolkids",                  :utriangle, :red),
     "wo_schoolkids"            => (wo_schoolkids,              "without schoolkids",                  :dtriangle, :red),
     "multiple_schools"         => (multiple_schools,           "with kids in multiple schools",       :diamond,   :red),
     "big_schools"              => (big_schools,                "with 1+ kid in big schools",          :pentagon,  :red),
     #workers
     "w_workers"                => (w_workers,                  "with workers",                        :circle,    :blue),
-    "w_1_worker"               => (w_1_worker,                 "with 1 worker",                       :square,    :blue),
+    #"w_1_worker"               => (w_1_worker,                 "with 1 worker",                       :square,    :blue),
     "w_2plus_worker"           => (w_2plus_workers,            "with 2+ workers",                     :utriangle, :blue),
     "wo_workers"               => (wo_workers,                 "without workers",                     :dtriangle, :blue),
     # combinations
@@ -371,7 +371,100 @@ p_relative_death_contribution = DataFrame(
 png(p_relative_death_contribution, joinpath(folder, "relative_death_contr_by_infection_contr.png"))
 
 
-# --> PLOT CONTRIBUTION BY SIZE AND COMPOSITION
+# --> PLOT INFECTION CONTRIBUTION BY SIZE AND COMPOSITION
+
+# helper functions to access ordered dict's keys and values by index
+key_id(od, id) = collect(keys(od))[id]
+val_id(od, id) = collect(values(od))[id]
+val_range(od, range) = (v -> val_id(od, v)).(collect(range))
+
+num_of_sizes = length(size_predicates)
+num_of_compositions = length(composition_predicates)
+
+# point labels taken from composition predicates
+labels = collect(keys(composition_predicates))
+# color palette
+#colors = palette(:Set1, num_of_compositions)
+colors = distinguishable_colors(length(composition_predicates))
+shapes = []
+
+
+plts = []
+for i in 1:length(size_limit_predicates)
+    # extract values from flat ordered dictionaries
+    filter_range = ((i-1) * num_of_compositions + 1):(i * num_of_compositions)
+    contributions = val_range(mean_contribution_per_type, filter_range)
+    people = val_range(number_of_people_ratio, filter_range)
+    
+    show_x = i >= 4
+    show_y = (i-1) % 3 == 0
+
+    p = plot(
+        xformatter = show_x ? x -> "$(Int64(round(100 * x)))%" : :none,
+        yformatter = show_y ? y -> "$(Int64(round(100 * y)))%" : :none,
+        xlabelfontsize = 20,
+        ylabelfontsize = 20,
+        xlabel = show_x ? "% of people living in \n this HH type" : "",
+        ylabel = show_y ? "% of infection chains\n involving this HH type" : "",
+        leftmargin = show_y ? 15mm : 0mm,
+        bottommargin = show_x ? 15mm : 0mm,
+        tickfontsize = 14,
+        titlefontsize = 20,
+        xlims = (0, 1.1), 
+        ylims = (0, 1.1),
+        title = val_id(size_limit_predicates, i)[2],
+        legend = false
+    )
+
+    for x in eachindex(contributions)
+        scatter!(p, [people[x]], [contributions[x]],
+            color = val_id(composition_predicates,x)[4],
+            markerstrokewidth=0,
+            markersize= 10,
+            marker=(val_id(composition_predicates,x)[3]),
+            label = val_id(composition_predicates,x)[2]
+        )
+    end
+
+    push!(plts, p)
+   
+end
+
+# add "ghost" plot for legend only
+gp = plot(
+    xlims = (0,1),
+    ylims = (0,1),
+    framestyle=:none,
+    legendfontsize = 14,
+    legend=:left,
+    bottommargin = 5mm
+)
+cnt = 1
+for (k, p) in composition_predicates
+    scatter!(gp, [0.5],[0.5],
+        color = p[4],
+        markerstrokewidth=0,
+        marker=(p[3]),
+        label = p[2])
+    cnt += 1
+end
+
+push!(plts, gp)
+
+l = @layout [
+    [grid(2,3)] a{0.22w}
+]
+
+p = plot(plts...,
+    fontfamily = "Times Roman",
+    size = (2000, 1000),
+    #layout = (2, 4))
+    layout = l)
+
+
+png(p, joinpath(folder, "contribution_analysis.png"))
+
+# --> PLOT DEATH CONTRIBUTION BY SIZE AND COMPOSITION
 
 # helper functions to access ordered dict's keys and values by index
 key_id(od, id) = collect(keys(od))[id]
