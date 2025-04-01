@@ -1,7 +1,6 @@
 using GEMS, DataFrames, Plots, Statistics, StatsPlots
 using Printf, Distributions, Dates, Proj, JLD2, Measures
-using DataStructures, Colors
-
+using DataStructures, Colors, CSV
 
 # INLCUDES
 include("predicates.jl")
@@ -19,8 +18,8 @@ mkpath(folder)
 ##### GLOBAL PARAMETERS
 #####
 
-num_of_baseline_sims = 3
-num_of_scenario_sims = 1
+num_of_baseline_sims = 10
+num_of_scenario_sims = 10
 quarantine_duration = 14
 
 ##### 
@@ -765,3 +764,107 @@ p_pareto = plot(
 )
 
 png(p_pareto, joinpath(folder, "pareto_fronts.png"))
+
+
+#####
+##### COMBINE ALL DATAFRAMES
+#####
+
+#=
+COLUMNS:
+    1.  scenario: scenario identifier
+    2.  label: label of the scenario (for printing)
+    3.  mean_contribution_rate: mean contribution over all simulation runs
+    4.  mean_death_contribution_rate: mean death contribution over all simulation runs
+    5.  number_of_households: number of households that match the predicate
+    6.  number_of_households_ratio: fraction of households that match the predicate
+    7.  number_of_people: number of people in the population that match the predicate
+        (i.e., that live in a household that matches the predicate)
+    8.  number_of_people_ratio: fraction of people in the population that match the predicate
+        (i.e., that live in a household that matches the predicate)
+    9.  contribution_by_size_ratio: mean contribution per household size
+    10. contribution_by_people_ratio: mean contribution per person
+    11. death_contribution_by_infection_contribution_ratio: mean death contribution per infection contribution
+        (>1 means, infections caused by that household type result in more deaths, <1 means less deaths)
+    12. r0: average R0 of the scenario
+    13. infections: average number of infections in the scenario
+    14. deaths: average number of deaths in the scenario
+    15. quarantine_days: average number of quarantine days in the scenario
+    16. lost_schooldays: average number of lost school days in the scenario
+    17. lost_workdays: average number of lost work days in the scenario
+    18. lost_otherdays: average number of lost other days (not school && not work) in the scenario
+    19. r0_diff: average difference in R0 between baseline and scenario
+    20. infections_diff: average difference in infections between baseline and scenario
+    21. deaths_diff: average difference in deaths between baseline and scenario
+    22. quarantine_days_diff: average difference in quarantine days between baseline and scenario
+    23. lost_schooldays_diff: average difference in lost school days between baseline and scenario
+    24. lost_workdays_diff: average difference in lost work days between baseline and scenario
+    25. lost_otherdays_diff: average difference in lost other days (not school && not work) between baseline and scenario
+    26. qdays_per_r0_diff: average number of quarantine days per R0 reduction of 0.1
+    27. q_ratio_school: number of lost school days as part of qdays_per_r0_diff
+    28. q_ratio_work: number of lost work days as part of qdays_per_r0_diff
+    29. q_ratio_other: number of lost other days as part of qdays_per_r0_diff
+    30. quarantine_pareto_optimal: boolean value indicating whether the scenario is
+        pareto optimal with regards to total quarantine days
+    31. schooldays_pareto_optimal: boolean value indicating whether the scenario is
+        pareto optimal with regards to lost school days
+    32. workdays_pareto_optimal: boolean value indicating whether the scenario is
+        pareto optimal with regards to lost work days
+=#
+
+combined_df = DataFrame(
+    scenario = collect(keys(predicates)),
+    label = (p -> p[2]).(collect(values(predicates)))
+) |>
+    df -> leftjoin(df,
+        DataFrame(
+            scenario = collect(keys(mean_contribution_per_type)),
+            mean_contribution_rate = collect(values(mean_contribution_per_type))
+        ), on = :scenario) |>
+    df -> leftjoin(df,
+        DataFrame(
+            scenario = collect(keys(mean_death_contribution_per_type)),
+            mean_death_contribution_rate = collect(values(mean_death_contribution_per_type))
+        ), on = :scenario) |>
+    df -> leftjoin(df,
+        DataFrame(
+            scenario = collect(keys(number_of_households)),
+            number_of_households = collect(values(number_of_households))
+        ), on = :scenario) |>
+    df -> leftjoin(df,
+        DataFrame(
+            scenario = collect(keys(number_of_households_ratio)),
+            number_of_households_ratio = collect(values(number_of_households_ratio))
+        ), on = :scenario) |>
+    df -> leftjoin(df,
+        DataFrame(
+            scenario = collect(keys(number_of_people)),
+            number_of_people = collect(values(number_of_people))
+        ), on = :scenario) |>
+    df -> leftjoin(df,
+        DataFrame(
+            scenario = collect(keys(number_of_people_ratio)),
+            number_of_people_ratio = collect(values(number_of_people_ratio))
+        ), on = :scenario) |>
+    df -> leftjoin(df,
+        DataFrame(
+            scenario = collect(keys(contribution_by_size_ratio)),
+            contribution_by_size_ratio = collect(values(contribution_by_size_ratio))
+        ), on = :scenario) |>
+    df -> leftjoin(df,
+        DataFrame(
+            scenario = collect(keys(contribution_by_people_ratio)),
+            contribution_by_people_ratio = collect(values(contribution_by_people_ratio))
+        ), on = :scenario) |>
+    df -> leftjoin(df,
+        DataFrame(
+            scenario = collect(keys(death_contribution_by_infection_contribution_ratio)),
+            death_contribution_by_infection_contribution_ratio = collect(values(death_contribution_by_infection_contribution_ratio))
+        ), on = :scenario) |>
+    df -> leftjoin(df, sim_diffs, on = :scenario) |> 
+    df -> leftjoin(df,
+        DataFrames.select(quarantine_pareto,
+            :scenario, :quarantine_pareto_optimal, :schooldays_pareto_optimal, :workdays_pareto_optimal
+        ), on = :scenario)
+
+CSV.write(joinpath(folder, "combined_scenario_data.csv"), combined_df)
