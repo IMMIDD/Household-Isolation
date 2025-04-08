@@ -1,6 +1,6 @@
 using GEMS, DataFrames, Plots, Statistics, StatsPlots
 using Printf, Distributions, Dates, Proj, JLD2, Measures
-using DataStructures, Colors, CSV
+using DataStructures, Colors, CSV, GLM
 
 # INLCUDES
 include("predicates.jl")
@@ -76,7 +76,7 @@ p_baseline = plot(
         ylabel = ""),
     gemsplot(baseline_rds, type = :EffectiveReproduction,
         plot_title = "",
-        title = "Reproduction Number",
+        title = "Effective Reproduction Number",
         titlefontsize = 12,
         ylabel = ""),
     gemsplot(baseline_rds[1], type = :CumulativeDiseaseProgressions,
@@ -192,7 +192,7 @@ size_limit_predicates = OrderedDict(
 predicates = OrderedDict()
 for (s, p1) in size_limit_predicates
     for (c, p2) in composition_predicates
-        predicates["$(s)_$c"] = ((h, sim) -> (p1[1](h, sim) && p2[1](h, sim)), "$(p1[2]); $(p2[2])")
+        predicates["$(s)_$c"] = ((h, sim) -> (p1[1](h, sim) && p2[1](h, sim)), "$(p1[2]); $(p2[2])", p2[3], p2[4])
     end
 end
 
@@ -376,6 +376,9 @@ png(p_relative_death_contribution, joinpath(folder, "relative_death_contr_by_inf
 key_id(od, id) = collect(keys(od))[id]
 val_id(od, id) = collect(values(od))[id]
 val_range(od, range) = (v -> val_id(od, v)).(collect(range))
+getsize(sc, pred, compos) = ((findfirst(x -> x == sc, collect(keys(pred))) / length(compos)) + 1) |> floor |> Int
+
+
 
 num_of_sizes = length(size_predicates)
 num_of_compositions = length(composition_predicates)
@@ -636,6 +639,13 @@ quarantine_pareto.workdays_pareto_optimal = fill(false, nrow(quarantine_pareto))
 quarantine_pareto.quarantine_color = fill(:lightgrey, nrow(quarantine_pareto))
 quarantine_pareto.schooldays_color = fill(:lightgrey, nrow(quarantine_pareto))
 quarantine_pareto.workdays_color = fill(:lightgrey, nrow(quarantine_pareto))
+quarantine_pareto.quarantine_shape = fill(:circle, nrow(quarantine_pareto))
+quarantine_pareto.schooldays_shape = fill(:circle, nrow(quarantine_pareto))
+quarantine_pareto.workdays_shape = fill(:circle, nrow(quarantine_pareto))
+quarantine_pareto.quarantine_dotsize = fill(3.0, nrow(quarantine_pareto))
+quarantine_pareto.schooldays_dotsize = fill(3.0, nrow(quarantine_pareto))
+quarantine_pareto.workdays_dotsize = fill(3.0, nrow(quarantine_pareto))
+
 
 for i in 1:nrow(quarantine_pareto)
     r_diff = quarantine_pareto.r0_diff[i]
@@ -646,28 +656,22 @@ for i in 1:nrow(quarantine_pareto)
     # total quarantines
     if quarantine_pareto.scenario[
         quarantine_pareto.r0_diff .> r_diff .&&
-        quarantine_pareto.quarantine_days .<= q_days] |> isempty
-        
+        quarantine_pareto.quarantine_days .<= q_days] |> isempty    
         quarantine_pareto.quarantine_pareto_optimal[i] = true
-        #quarantine_pareto.quarantine_color[i] = :black
     end
 
     # total lost school days
     if quarantine_pareto.scenario[
         quarantine_pareto.r0_diff .> r_diff .&&
-        quarantine_pareto.lost_schooldays .<= s_days] |> isempty
-        
+        quarantine_pareto.lost_schooldays .<= s_days] |> isempty     
         quarantine_pareto.schooldays_pareto_optimal[i] = true
-        #quarantine_pareto.schooldays_color[i] = :blue
     end
 
     # total lost work days
     if quarantine_pareto.scenario[
         quarantine_pareto.r0_diff .> r_diff .&&
-        quarantine_pareto.lost_workdays .<= w_days] |> isempty
-        
+        quarantine_pareto.lost_workdays .<= w_days] |> isempty 
         quarantine_pareto.workdays_pareto_optimal[i] = true
-        #quarantine_pareto.workdays_color[i] = :blue
     end
 end
 
@@ -675,92 +679,88 @@ end
 # color dots
 for i in 1:nrow(quarantine_pareto)
 
-    # triple match
-    if quarantine_pareto.quarantine_pareto_optimal[i] &&
-       quarantine_pareto.schooldays_pareto_optimal[i] &&
-       quarantine_pareto.workdays_pareto_optimal[i]
+    sc = quarantine_pareto.scenario[i]
 
-       quarantine_pareto.quarantine_color[i] = :purple
-       quarantine_pareto.schooldays_color[i] = :purple
-       quarantine_pareto.workdays_color[i] = :purple
+    if quarantine_pareto.quarantine_pareto_optimal[i]
+        quarantine_pareto.quarantine_color[i] = predicates[sc][4]
+        quarantine_pareto.quarantine_shape[i] = predicates[sc][3]
+        quarantine_pareto.quarantine_dotsize[i] = 11 - 1.3 * getsize(sc, predicates, composition_predicates)
+    end
 
-    # double match in schooldays and workdays
-    elseif quarantine_pareto.workdays_pareto_optimal[i] &&
-           quarantine_pareto.schooldays_pareto_optimal[i]
+    if quarantine_pareto.schooldays_pareto_optimal[i]
+        quarantine_pareto.schooldays_color[i] = predicates[sc][4]
+        quarantine_pareto.schooldays_shape[i] = predicates[sc][3]
+        quarantine_pareto.schooldays_dotsize[i] = 11 - 1.3  *  getsize(sc, predicates, composition_predicates)
+    end
 
-        quarantine_pareto.schooldays_color[i] = :orange
-        quarantine_pareto.workdays_color[i] = :orange
-
-    else
-        if quarantine_pareto.quarantine_pareto_optimal[i]
-            quarantine_pareto.quarantine_color[i] = :black
-            #quarantine_pareto.schooldays_color[i] = :black
-            #quarantine_pareto.workdays_color[i] = :black
-        end
-
-        if quarantine_pareto.schooldays_pareto_optimal[i]
-            #quarantine_pareto.quarantine_color[i] = :blue
-            quarantine_pareto.schooldays_color[i] = :blue
-            #quarantine_pareto.workdays_color[i] = :blue
-        end
-
-        if quarantine_pareto.workdays_pareto_optimal[i]
-            #quarantine_pareto.quarantine_color[i] = :red
-            #quarantine_pareto.schooldays_color[i] = :red
-            quarantine_pareto.workdays_color[i] = :red
-        end
+    if quarantine_pareto.workdays_pareto_optimal[i]
+        quarantine_pareto.workdays_color[i] = predicates[sc][4]
+        quarantine_pareto.workdays_shape[i] = predicates[sc][3]
+        quarantine_pareto.workdays_dotsize[i] = 11 - 1.3  *  getsize(sc, predicates, composition_predicates)
     end
 end
 
 
+p_xlims = (-0.1 * maximum(quarantine_pareto.quarantine_days), maximum(quarantine_pareto.quarantine_days) * 1.1)
+p_ylims = (-0.1 * maximum(quarantine_pareto.r0_diff) * 1.1, maximum(quarantine_pareto.r0_diff) * 1.1)
+
 p_quarantine = scatter(quarantine_pareto.quarantine_days, quarantine_pareto.r0_diff,
     color = quarantine_pareto.quarantine_color,
-    title = "Total Quarantine Days",
-#   size = (800, 600),
     legend = false,
     markerstrokewidth = 0,
+    marker = quarantine_pareto.quarantine_shape,
+    markersize= quarantine_pareto.quarantine_dotsize,
+    #xlims = p_xlims,
+    ylims = p_ylims,
     ylabel = "R0-Reduction",
-    xlabel = "Cumulative Quarantine Days")
+    xlabel = "Cumulative Quarantine Days",
+    size = (600, 800))
 
 p_schooldays = scatter(quarantine_pareto.lost_schooldays, quarantine_pareto.r0_diff,
     color = quarantine_pareto.schooldays_color,
-    title = "Lost School Days",
-#   size = (800, 600),
     legend = false,
     markerstrokewidth = 0,
+    marker = quarantine_pareto.schooldays_shape,
+    markersize= quarantine_pareto.schooldays_dotsize,
+    #xlims = p_xlims,
+    ylims = p_ylims,
     ylabel = "R0-Reduction",
     xlabel = "Cumulative Lost School Days")
 
 p_workdays = scatter(quarantine_pareto.lost_workdays, quarantine_pareto.r0_diff,
     color = quarantine_pareto.workdays_color,
-    title = "Lost Workdays",
-#   size = (800, 600),
     legend = false,
     markerstrokewidth = 0,
+    marker = quarantine_pareto.workdays_shape,
+    markersize= quarantine_pareto.workdays_dotsize,
+    #xlims = p_xlims,
+    ylims = p_ylims,
     ylabel = "R0-Reduction",
     xlabel = "Cumulative Lost Workdays Days")
 
 
-p_deaths = scatter(quarantine_pareto.quarantine_days, quarantine_pareto.deaths_diff,
-    color = :lightgrey,
-    title = "Deaths",
-#   size = (800, 600),
-    legend = false,
-    markerstrokewidth = 0,
-    ylabel = "Saved Lives",
-    xlabel = "Cumulative Quarantine Days")
+# p_deaths = scatter(quarantine_pareto.quarantine_days, quarantine_pareto.deaths_diff,
+#     color = :lightgrey,
+#     title = "Deaths",
+# #   size = (800, 600),
+#     legend = false,
+#     markerstrokewidth = 0,
+#     ylabel = "Saved Lives",
+#     xlabel = "Cumulative Quarantine Days")
 
 
 p_pareto = plot(
     p_quarantine,
+    gp,
     p_schooldays,
     p_workdays,
-    p_deaths,
-    layout = (1,4),
-    size = (1800, 400),
+    layout = (2,2),
+    size = (1200, 1000),
     left_margin = 6mm,
     bottom_margin = 10mm,
     fontfamily = "Times Roman",
+    labelfontsize = 16,
+    tickfontsize = 10,
 )
 
 png(p_pareto, joinpath(folder, "pareto_fronts.png"))
@@ -867,4 +867,67 @@ combined_df = DataFrame(
             :scenario, :quarantine_pareto_optimal, :schooldays_pareto_optimal, :workdays_pareto_optimal
         ), on = :scenario)
 
+# export CSV document in output folder
 CSV.write(joinpath(folder, "combined_scenario_data.csv"), combined_df)
+
+
+
+#####
+##### PLOT CONTRIBUTION BY PEOPLE RATIO VS QUARANTINE DAYS PER R0 REDUCTION
+#####
+
+# linear regression model
+model = lm(@formula(qdays_per_r0_diff ~ contribution_by_people_ratio), combined_df)
+
+# Extract coefficients
+intercept = coef(model)[1]
+slope = coef(model)[2]
+
+p_r0eff_by_CR = combined_df |>
+    df -> df[df.qdays_per_r0_diff .>= 0, :] |>
+    df -> scatter(
+        df.contribution_by_people_ratio, df.qdays_per_r0_diff,
+        #color = (sc -> predicates[sc][4]).(df.scenario),
+        color = :black,
+        #legend = false,
+        label = "Quarantine Scenarios",
+        size = (1400, 600),
+        markerstrokewidth = 0,
+        #marker = (sc -> predicates[sc][3]).(df.scenario),
+        markersize = 3 .+ 5 .* df.number_of_people_ratio,
+        #markersize = (sc -> (12 - 1.2 * getsize(sc, predicates, composition_predicates))).(df.scenario),
+        fontfamily = "Times Roman",
+        labelfontsize = 16,
+        tickfontsize = 10,
+        legendfontsize = 10,
+        left_margin = 8mm,
+        bottom_margin = 8mm,
+        #xlims = (1, 1.1 * maximum(df.contribution_by_people_ratio)),
+        ylims = (0, 1.1 * maximum(df.qdays_per_r0_diff)),
+        ylabel = "Quarantine Days \n per 0.1 R0 Reduction",
+        xlabel = "Contribution by People Ratio") |>
+    # add trendline
+    sc_p -> plot!(sc_p,
+    combined_df.contribution_by_people_ratio,
+        intercept .+ slope .* combined_df.contribution_by_people_ratio,
+        color = :red,
+        label = "Trendline",
+        linewidth = 2,
+        #linestyle = :dash,
+    )
+
+png(p_r0eff_by_CR, joinpath(folder, "quarantine_day_efficiency_by_contribution_by_people_ratio.png"))
+
+
+
+
+
+
+
+
+# re-load data
+# folder = "results/2025-03-31_15-45-40_537"
+# baseline_outcomes = JLD2.load_object(joinpath(folder, "baseline_outcomes.jld2"))
+# combined_df = CSV.read(joinpath(folder, "combined_scenario_data.csv"), DataFrame)
+# baseline_rds = JLD2.load_object(joinpath(folder, "baseline_rds.jld2"))
+# res = JLD2.load_object(joinpath(folder, "sim_data.jld2"))
