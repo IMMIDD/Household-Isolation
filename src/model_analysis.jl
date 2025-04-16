@@ -1,18 +1,3 @@
-function Base.size(setting::ContainerSetting, simulation::Simulation)::Int
-    total_size = 0
-    for s_id in setting.contains
-        contained_setting = settings(simulation, setting.contains_type)[s_id]
-        total_size += size(contained_setting, simulation)
-    end
-    return total_size
-end
-
-function Base.size(setting::IndividualSetting, simulation::Simulation)::Int
-    return length(individuals(setting, simulation))
-end
-
-
-
 # formats x-ticks in barcharts for size histograms
 function format_xticks(data)
     res = []
