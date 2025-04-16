@@ -2,7 +2,7 @@ module GEMS_HH_Isolations
 
     using GEMS, DataFrames, Plots, Statistics, StatsPlots
     using Printf, Distributions, Dates, Proj, JLD2, Measures
-    using DataStructures, Colors, CSV, GLM, TOML
+    using DataStructures, Colors, CSV, GLM, TOML, Revise
 
     export run_experiments
 
@@ -15,7 +15,13 @@ module GEMS_HH_Isolations
     include("output_analysis.jl")
 
 
-    function run_experiments()
+    function run_experiments(;
+        num_of_baseline_sims = 10,
+        num_of_scenario_sims = 10,
+        quarantine_duration = 14,
+        input_config = "models/SL_model_R0_3.26.toml",
+        population_model = "SL"
+    )
 
         # RESULT FOLDER
         folder = joinpath("results", "$(Dates.format(Dates.now(), "yyyy-mm-dd_HH-MM-SS_sss"))")
@@ -25,9 +31,7 @@ module GEMS_HH_Isolations
         ##### GLOBAL PARAMETERS
         #####
 
-        num_of_baseline_sims = 1
-        num_of_scenario_sims = 1
-        quarantine_duration = 14
+
 
         ##### 
         ##### RUNNING BASELINE SIMULATIONS
@@ -36,7 +40,7 @@ module GEMS_HH_Isolations
         printinfo("START RUNNING BASELINE SIMULATIONS")
 
         # function to initialize the test simulation
-        init_sim() = Simulation("models/SL_model_R0_3.26.toml", "SL")
+        init_sim() = Simulation(input_config, population_model)
         #init_sim() = Simulation(label = "Baseline")
 
         baseline_rds = ResultData[]

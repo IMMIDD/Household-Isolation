@@ -2,7 +2,7 @@
 
 julia_version = "1.11.3"
 manifest_format = "2.0"
-project_hash = "006ef4c854b82f792e411aaefc8bc4030bae0d4c"
+project_hash = "f5deae5062acfaecf60b6a8319af6c0c9819f313"
 
 [[deps.ANSIColoredPrinters]]
 git-tree-sha1 = "574baf8110975760d391c710b6341da1afa48d8c"
@@ -531,11 +531,11 @@ version = "302.1000.100+0"
 
 [[deps.GEMS]]
 deps = ["BenchmarkTools", "CSV", "CategoricalArrays", "ContentHashes", "CpuId", "DSP", "DataFrames", "DataStructures", "Dates", "Debugger", "DelimitedFiles", "Distributions", "Documenter", "FileIO", "Formatting", "GMT", "HTTP", "ImageIO", "InteractiveUtils", "JLD2", "JSON", "Logging", "LoggingExtras", "OrderedCollections", "Parameters", "PkgVersion", "Plots", "PrettyTables", "ProgressBars", "RData", "Random", "Revise", "RollingFunctions", "Shapefile", "Statistics", "StatsBase", "StatsPlots", "Suppressor", "TOML", "TimerOutputs", "UUIDs", "UrlDownload", "VegaLite", "VideoIO", "Weave", "ZipFile"]
-git-tree-sha1 = "67b45c11fc6b83f0b1d44359da637f3f040489f2"
-repo-rev = "v0.4.2"
-repo-url = "https://github.com/IMMIDD/GEMS/"
+git-tree-sha1 = "3410109fa1c897a8618d7f471411329e162eeef2"
+repo-rev = "v0.4.3"
+repo-url = "https://github.com/IMMIDD/GEMS"
 uuid = "be47d99e-7859-414d-a902-bf4cb6b83c8a"
-version = "0.4.2"
+version = "0.4.3"
 
 [[deps.GEOS_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
