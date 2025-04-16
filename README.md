@@ -38,13 +38,8 @@ The graphs below show how quarantining strategies targeting households based on 
 ## Run the Experiments
 
 Given that you have [Julia 1.11.3+](https://julialang.org/) installed, 
-you can either clone the repository and run `pkg> instantiate` in your repository clone or start with a fresh script and install these experiments as a package like:
-
-```julia
-using Pkg
-Pkg.add(url = "https://github.com/IMMIDD/Household-Isolation")
-```
-
+clone the repository and run `pkg> instantiate` in your repository clone to download all dependencies.
+You can set up a new script (e.g., `experiments.jl`, which is already on `.gitignore`) in your root folder to work with.
 Then, load the package and run the experiments like this:
 
 ```julia
