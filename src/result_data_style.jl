@@ -1,5 +1,4 @@
-using TOML
-
+export CustomRD
 mutable struct CustomRD <: GEMS.ResultDataStyle
     data::Dict{String, Any}
     function CustomRD(pP::PostProcessor)
