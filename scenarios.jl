@@ -894,8 +894,9 @@ p_r0eff_by_CR = combined_df |>
         size = (1400, 600),
         markerstrokewidth = 0,
         #marker = (sc -> predicates[sc][3]).(df.scenario),
-        markersize = 3 .+ 5 .* df.number_of_people_ratio,
-        #markersize = (sc -> (12 - 1.2 * getsize(sc, predicates, composition_predicates))).(df.scenario),
+        #markersize = 3 .+ 5 .* df.number_of_people_ratio,
+        #markersize = 20 .* df.infections_at_home,
+        markersize = (sc -> (2 + 1.1 * getsize(sc, predicates, composition_predicates))).(df.scenario),
         fontfamily = "Times Roman",
         labelfontsize = 16,
         tickfontsize = 10,
@@ -919,15 +920,11 @@ p_r0eff_by_CR = combined_df |>
 png(p_r0eff_by_CR, joinpath(folder, "quarantine_day_efficiency_by_contribution_by_people_ratio.png"))
 
 
-
-
-
-
-
-
 # re-load data
 # folder = "results/2025-03-31_15-45-40_537"
 # baseline_outcomes = JLD2.load_object(joinpath(folder, "baseline_outcomes.jld2"))
+# contribution_per_type = JLD2.load_object(joinpath(folder, "contribution_per_type.jld2"))
+# death_contribution_per_type = JLD2.load_object(joinpath(folder, "death_contribution_per_type.jld2"))
 # combined_df = CSV.read(joinpath(folder, "combined_scenario_data.csv"), DataFrame)
 # baseline_rds = JLD2.load_object(joinpath(folder, "baseline_rds.jld2"))
 # res = JLD2.load_object(joinpath(folder, "sim_data.jld2"))

@@ -8,7 +8,13 @@ function outcomes(rd)
         "quarantine_days" => cumulative_quarantines(rd).quarantined |> sum,
         "lost_workdays" => cumulative_quarantines(rd).workers |> sum,
         "lost_schooldays" => cumulative_quarantines(rd).students |> sum,
-        "lost_otherdays" => cumulative_quarantines(rd).other |> sum
+        "lost_otherdays" => cumulative_quarantines(rd).other |> sum,
+        "infections_at_home" => tick_cases_per_setting(rd) |>
+            df -> df[df.setting_type .== 'h',:] |>
+            df -> sum(df.daily_cases) / total_infections(rd),
+        "infections_at_work" => tick_cases_per_setting(rd) |>
+            df -> df[df.setting_type .== 'o',:] |>
+            df -> sum(df.daily_cases) / total_infections(rd)
     )
 end
 
@@ -22,11 +28,12 @@ function df_from_outcomes(outcomes::Vector)
         quarantine_days = [],
         lost_workdays = [],
         lost_schooldays = [],
-        lost_otherdays = []
+        lost_otherdays = [],
+        infections_at_home = []
     )
 
     for o in outcomes
-        push!(res, (o["scenario"], o["r0"], o["infections"], o["deaths"], o["quarantine_days"], o["lost_workdays"], o["lost_schooldays"], o["lost_otherdays"]))
+        push!(res, (o["scenario"], o["r0"], o["infections"], o["deaths"], o["quarantine_days"], o["lost_workdays"], o["lost_schooldays"], o["lost_otherdays"], o["infections_at_home"]))
     end
 
     return res
@@ -44,7 +51,8 @@ function summarize_outcomes(outcomes_df)
             :quarantine_days => mean => :quarantine_days,
             :lost_workdays => mean => :lost_workdays,
             :lost_schooldays => mean => :lost_schooldays,
-            :lost_otherdays => mean => :lost_otherdays
+            :lost_otherdays => mean => :lost_otherdays,
+            :infections_at_home => mean => :infections_at_home,
         )
 end
 
